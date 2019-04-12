@@ -4,6 +4,7 @@
 #include <sstream>
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
+#include "stb_image.h"
 
 // GLFW窗口
 GLFWwindow *window = nullptr;
@@ -60,7 +61,7 @@ int main(int argc, char **argv)
 
     // 顶点着色器
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    const char *vertexShaderSource = readShaderFile("VertexShaderSource.vs").c_str();
+    const char *vertexShaderSource = readShaderFile("../shader/VertexShaderSource.vs").c_str();
     glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
     glCompileShader(vertexShader);
 
@@ -75,7 +76,7 @@ int main(int argc, char **argv)
 
     // 片段着色器
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    const char *fragmentShaderSource = readShaderFile("FragmentShaderSource.fs").c_str();
+    const char *fragmentShaderSource = readShaderFile("../shader/FragmentShaderSource.fs").c_str();
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
     glCompileShader(fragmentShader);
 
@@ -105,16 +106,17 @@ int main(int argc, char **argv)
     // 顶点坐标数据
     GLfloat vertices[] =
     {
-         0.5f,  0.5f, 0.0f,
-         0.5f, -0.5f, 0.0f,
-        -0.5f, -0.5f, 0.0f,
-        -0.5f,  0.5f, 0.0f
+        // 顶点位置           // 顶点颜色           // 贴图UV
+         0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,    2.0f, 2.0f,
+         0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,    2.0f, -1.0f,
+        -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   -1.0f, -1.0f,
+        -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   -1.0f, 2.0f
     };
     // 顶点索引数据
     GLuint indices[] =
     {
-        0, 1, 2,
-        0, 2, 3
+        0, 1, 3,
+        1, 2, 3
     };
 
     GLuint VAOs[1];
@@ -126,14 +128,48 @@ int main(int argc, char **argv)
     glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(GLfloat), (void*)0);
-    glEnableVertexAttribArray(0);
-
     GLuint EBOs[1];
     glGenBuffers(1, EBOs);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBOs[0]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8* sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
+
+    // 加载创建贴图
+    GLuint textures[1];
+    glGenTextures(1, textures);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+
+    // 设置贴图纹理环绕方式
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // 设置贴图被缩小时,多级渐远纹理(Mipmap)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    // 设置贴图被放大时,像素之间线性插值,使得贴图更柔和
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // 读取本地图片
+    int wallTexWidth, wallTexHeight, wallTexChannel;
+    unsigned char *wallTexData = stbi_load("../texture/wall.jpg", &wallTexWidth, &wallTexHeight, &wallTexChannel, 0);
+    // 将本地图片资源导入到贴图中
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, wallTexWidth, wallTexHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, wallTexData);
+    // 生成MipMap
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    // 释放图片资源
+    stbi_image_free(wallTexData);
+
+    // 激活着色器
+    glUseProgram(program);
+    // 设置Shader的纹理采样器的纹理单元
+    glUniform1i(glGetUniformLocation(program, "wallTextureSampler"), 0);
 
     // 渲染循环线程
     while(!glfwWindowShouldClose(window))
@@ -144,6 +180,10 @@ int main(int argc, char **argv)
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
+
         glBindVertexArray(VAOs[0]);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
@@ -152,6 +192,11 @@ int main(int argc, char **argv)
         // 轮询事件处理
         glfwPollEvents();
     }
+
+    // 销毁顶点缓冲
+    glDeleteVertexArrays(1, VAOs);
+    glDeleteBuffers(1, VBOs);
+    glDeleteBuffers(1, EBOs);
 
     // 销毁窗口并释放GLFW资源
     glfwDestroyWindow(window);
