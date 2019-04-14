@@ -1,71 +1,60 @@
 #include <iostream>
-#include <string>
+#include "Camera.h"
+#include "Shader.h"
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 #include "stb_image.h"
-#include "Shader.h"
-#include "Camera.h"
 
-// GLFW窗口
-GLFWwindow *window = nullptr;
-// 窗口宽度
-int width = 800;
-// 窗口高度
-int height = 600;
 // 窗口标题
-const char *title = "OpenGLTutorial";
+const char *title = "PhongLight";
+// 窗口宽度和高度
+int width = 800, height = 600;
+// 窗口对象
+GLFWwindow *window = nullptr;
+
+// 帧差时间
+float deltaTime = 0.0f;
+// 上一帧时间
+float lastTime = 0.0f;
 
 // 摄像机
 Camera camera;
-// 帧时间
-float deltaTime = 0.0f;
-float lastTime = 0.0f;
+
+// 光物体位置
+glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 
 // 窗口大小改变回调函数
 void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
 // 鼠标位置改变回调函数
-void mouseCallback(GLFWwindow* window, double x, double y);
-// 鼠标滑轮滚动回调事件
-void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
-// 按键处理函数
-void processInput(GLFWwindow *window);
+void cursorPosCallback(GLFWwindow *window, double x, double y);
+// 鼠标滚轮改变回调函数
+void scrollCallback(GLFWwindow *window, double xoffset, double yoffset);
+// 键盘输入回调函数
+void keyboardInput(GLFWwindow *window);
 
-// 主函数
-int main(int argc, char **argv)
+int main()
 {
     // 初始化GLFW
     glfwInit();
-    // 设置GLFW上下文版本为3.3
+    // 设置GLFW窗口上下文的OpenGL版本
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    // 设置GLFW的版本
+    // 设置GLFW窗口的OpenGL渲染模式
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
     // 创建GLFW窗口
-    window = glfwCreateWindow(width , height, title, nullptr, nullptr);
-    // 判断窗口是否创建成功
+    window = glfwCreateWindow(width, height, title, nullptr, nullptr);
+    // 判断是否创建成功
     if(!window)
     {
         glfwTerminate();
         std::cout << "GLFW Window Create Fail..." << std::endl;
         return EXIT_FAILURE;
     }
-
-    // 设置GLFW上下文为当前窗口线程上下文
+    // 设置GLFW上下文
     glfwMakeContextCurrent(window);
-
-    // 设置鼠标沉浸在窗口中
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-    // 设置窗口大小改变回调函数
-    glfwSetFramebufferSizeCallback(window, frameBufferSizeCallback);
-    // 设置鼠标位置改变回调函数
-    glfwSetCursorPosCallback(window, mouseCallback);
-    // 设置鼠标滑轮滚动回调函数
-    glfwSetScrollCallback(window, scrollCallback);
 
     // 初始化GLAD
     if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -74,218 +63,165 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    // 设置鼠标沉浸模式
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    // 设置窗口大小改变回调函数
+    glfwSetFramebufferSizeCallback(window, frameBufferSizeCallback);
+    // 设置鼠标输入回调函数
+    glfwSetCursorPosCallback(window, cursorPosCallback);
+    // 设置鼠标滚轮回调函数
+    glfwSetScrollCallback(window, scrollCallback);
+
     // 开启深度测试
     glEnable(GL_DEPTH_TEST);
 
-    // 创建着色器
-    Shader firstShader("../shader/VertexShaderSource.vs", "../shader/FragmentShaderSource.fs");
+    // 立方体顶点数据
+    GLfloat cubeVertices[] = {
+            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+            0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
 
-    // 顶点坐标数据
-    GLfloat vertices[] =
-    {
-        // 顶点位置           // 贴图UV
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+            0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
 
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+            -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+            -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+            -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+            -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
 
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+            0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+            0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
 
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+            0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+            0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+            0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
 
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
     };
 
-    GLfloat cubeVertices[] =
-    {
-        -0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f,  0.5f, -0.5f,
-         0.5f,  0.5f, -0.5f,
-        -0.5f,  0.5f, -0.5f,
-        -0.5f, -0.5f, -0.5f,
+    // 创建两个Shader
+    Shader lightShader("../shader/PhongLight/01/LightVertexShaderSource.glsl","../shader/PhongLight/01/LightFragmentShaderSource.glsl");
+    Shader objShader("../shader/PhongLight/01/CubeVertexShaderSource.glsl","../shader/PhongLight/01/CubeFragmentShaderSource.glsl");
 
-        -0.5f, -0.5f,  0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f,  0.5f,
-        -0.5f, -0.5f,  0.5f,
-
-        -0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f, -0.5f,
-        -0.5f, -0.5f, -0.5f,
-        -0.5f, -0.5f, -0.5f,
-        -0.5f, -0.5f,  0.5f,
-        -0.5f,  0.5f,  0.5f,
-
-         0.5f,  0.5f,  0.5f,
-         0.5f,  0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-
-        -0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f, -0.5f,  0.5f,
-        -0.5f, -0.5f,  0.5f,
-        -0.5f, -0.5f, -0.5f,
-
-        -0.5f,  0.5f, -0.5f,
-         0.5f,  0.5f, -0.5f,
-         0.5f,  0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f, -0.5f
-    };
-
-    GLuint VAOs[1];
-    glGenVertexArrays(1, VAOs);
-    glBindVertexArray(VAOs[0]);
-
-    GLuint VBOs[1];
-    glGenBuffers(1, VBOs);
-    glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5* sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-
-    // 加载创建贴图
-    GLuint textures[1];
-    glGenTextures(1, textures);
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
-
-    // 设置贴图纹理环绕方式
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // 设置贴图被缩小时,多级渐远纹理(Mipmap)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    // 设置贴图被放大时,像素之间线性插值,使得贴图更柔和
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    // 读取本地图片
-    int wallTexWidth, wallTexHeight, wallTexChannel;
-    unsigned char *wallTexData = stbi_load("../texture/box01.png", &wallTexWidth, &wallTexHeight, &wallTexChannel, 0);
-    // 将本地图片资源导入到贴图中
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, wallTexWidth, wallTexHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, wallTexData);
-    // 生成MipMap
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    // 释放图片资源
-    stbi_image_free(wallTexData);
-
-    // 激活着色器
-    firstShader.use();
-    // 设置Shader的纹理采样器的纹理单元
-    firstShader.setUniform1i("boxTextureSampler", 0);
-
-    // ############################################################
-    GLuint CubeVAOs[1];
-    glGenVertexArrays(1, CubeVAOs);
-    glBindVertexArray(CubeVAOs[0]);
-
-    GLuint CubeVBOs[1];
-    glGenBuffers(1, CubeVBOs);
-    glBindBuffer(GL_ARRAY_BUFFER, CubeVBOs[0]);
+    // 立方体物体VBO
+    GLuint cubeVBO;
+    glGenBuffers(1, &cubeVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3* sizeof(GL_FLOAT), (void*)0);
+    // 光照物体VAO
+    GLuint lightVAO;
+    glGenVertexArrays(1, &lightVAO);
+    glBindVertexArray(lightVAO);
+    // 绑定立方体物体VBO
+    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+    // VAO解释VBO中的数据
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6*sizeof(GL_FLOAT), (void*)0);
+    // 启用VAO中的0号属性位置
+    glEnableVertexAttribArray(0);
 
-    // 渲染循环线程
+    // 玩具立方体VAO
+    GLuint objVAO;
+    glGenVertexArrays(1, &objVAO);
+    glBindVertexArray(objVAO);
+    // 绑定立方体物体VBO
+    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+    // VAO解释VBO中的顶点数据
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6*sizeof(GL_FLOAT), (void*)0);
+    // 启用VAO中的0号顶点属性位置
+    glEnableVertexAttribArray(0);
+    // VAO解释VBO中的法线数据
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6*sizeof(GL_FLOAT), (void*)(3*sizeof(GL_FLOAT)));
+    // 启用VAO中的0号法线属性位置
+    glEnableVertexAttribArray(1);
+
+    // 渲染循环
     while(!glfwWindowShouldClose(window))
     {
-        // 获取当前时间
-        float currentTime = (float)glfwGetTime();
-        // 获取差值时间
+        // 计算时间帧差
+        float currentTime = glfwGetTime();
         deltaTime = currentTime - lastTime;
-        // 设置最后时间
         lastTime = currentTime;
 
-        // 处理键盘输入
-        processInput(window);
-
-        // 设置清除颜色
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        // 根据清除颜色清除颜色缓冲区
+        // 设置颜色缓冲区清除颜色
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        // 清除颜色缓冲区与深度缓冲区
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // 使用着色器程序
-        firstShader.use();
-        // 激活0纹理单元贴图
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, textures[0]);
+        // 键盘输入
+        keyboardInput(window);
 
-        // 模型矩阵
-        glm::mat4 model(1.0f);
         // 视图矩阵
-        glm::mat4 view;
-        // 投影矩阵
-        glm::mat4 projection(1.0f);
+        glm::mat4 view = camera.getViewMatrix();
+        // 裁剪矩阵
+        glm::mat4 projection = glm::perspective(glm::radians(camera.getCameraFOV()), (float)width/(float)height, 0.1f, 100.0f);
 
-        // 模型矩阵,让模型围着一个轴旋转
-        model = glm::rotate(model, (float)(glfwGetTime()*0.5), glm::vec3(0.5f, 1.0f, 0.0f));
-        // 视图矩阵即摄像机
-        view = camera.getViewMatrix();
-        // 投影矩阵
-        projection = glm::perspective(glm::radians(camera.getCameraFOV()), (float)(width/height), 0.1f, 100.0f);
+        // 设置光物体着色器
+        lightShader.use();
 
-        // 设置到顶点着色器
-        firstShader.setUniformMatrix4fv("model", 1, GL_FALSE, model);
-        firstShader.setUniformMatrix4fv("view", 1, GL_FALSE, view);
-        firstShader.setUniformMatrix4fv("projection", 1, GL_FALSE, projection);
+        // 设置光物体顶点着色器模型矩阵
+        glm::mat4 lightModel(1.0f);
+        lightModel = glm::translate(lightModel, lightPos);
+        lightModel = glm::scale(lightModel, glm::vec3(0.2));
+        lightShader.setUniformMatrix4fv("model", lightModel);
+        // 设置光物体顶点着色器视图矩阵
+        lightShader.setUniformMatrix4fv("view", view);
+        // 设置光物体顶点着色器裁剪矩阵
+        lightShader.setUniformMatrix4fv("projection", projection);
 
-        // 绑定顶点数组对象
-        glBindVertexArray(VAOs[0]);
+        // 绘制光物体
+        glBindVertexArray(lightVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // 设置立方体物体着色器
+        objShader.use();
+
+        // 设置立方体物体顶点着色器模型矩阵、视图矩阵、裁剪矩阵
+        glm::mat4 objModel(1.0f);
+        objModel = glm::rotate(objModel, (float)(glfwGetTime()*0.5), glm::vec3(0.5f, 1.0f, 0.0f));
+        objShader.setUniformMatrix4fv("model", objModel);
+        objShader.setUniformMatrix4fv("view", view);
+        objShader.setUniformMatrix4fv("projection", projection);
+
+        // 设置立方体物体片段着色器光的颜色
+        objShader.setUniform3fv("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
+        objShader.setUniform3fv("objColor", glm::vec3(1.0f, 0.0f, 0.0f));
+        objShader.setUniform3fv("lightPos", lightPos);
+        objShader.setUniform3fv("viewPos", camera.getCameraPosition());
+
+        // 绘制立方体物体
+        glBindVertexArray(objVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         // 双缓冲交换
         glfwSwapBuffers(window);
-        // 轮询事件处理
+        // 事件处理
         glfwPollEvents();
     }
 
-    // 销毁顶点缓冲
-    glDeleteVertexArrays(1, VAOs);
-    glDeleteBuffers(1, VBOs);
-
-    // 销毁窗口并释放GLFW资源
+    // 关闭窗口释放资源
     glfwDestroyWindow(window);
     glfwTerminate();
 
@@ -299,51 +235,43 @@ void frameBufferSizeCallback(GLFWwindow *window, int width, int height)
 }
 
 // 鼠标位置改变回调函数
-void mouseCallback(GLFWwindow *window, double x, double y)
+void cursorPosCallback(GLFWwindow *window, double x, double y)
 {
     camera.processMouseInput(x, y);
 }
 
-// 鼠标滑轮滚动回调事件
-void scrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+// 鼠标滚轮改变回调函数
+void scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
 {
     camera.processScrollInput(yoffset);
 }
 
-// 键盘按键触发回调函数
-void processInput(GLFWwindow *window)
+// 键盘输入回调函数
+void keyboardInput(GLFWwindow *window)
 {
-    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-    {
-        camera.processKeyInput(CameraMovement::Forward, deltaTime);
-    }
-    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    {
-        camera.processKeyInput(CameraMovement::Backward, deltaTime);
-    }
-
-    if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-    {
-        camera.processKeyInput(CameraMovement::Right, deltaTime);
-    }
-
-    if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    {
-        camera.processKeyInput(CameraMovement::Left, deltaTime);
-    }
-
+    // 关闭窗口
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     {
         glfwSetWindowShouldClose(window, true);
     }
-
-    if(glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    // 向前移动
+    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        camera.processKeyInput(CameraMovement::Forward, deltaTime);
     }
-
-    if(glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    // 向后移动
+    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        camera.processKeyInput(CameraMovement::Backward, deltaTime);
+    }
+    // 向右移动
+    if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    {
+        camera.processKeyInput(CameraMovement::Right, deltaTime);
+    }
+    // 向左移动
+    if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    {
+        camera.processKeyInput(CameraMovement::Left, deltaTime);
     }
 }

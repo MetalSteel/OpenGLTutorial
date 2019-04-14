@@ -31,8 +31,10 @@ public:
     void setUniform1i(const std::string &name, int value);
     // 设置Uniform变量浮点数类型
     void setUniform1f(const std::string &name, int value);
+    // 设置Uniform变量vec3类型
+    void setUniform3fv(const std::string &name, glm::vec3 value);
     // 设置Uniform变量齐次矩阵类型
-    void setUniformMatrix4fv(const std::string &name, GLsizei count, GLboolean transpose, glm::mat4 value);
+    void setUniformMatrix4fv(const std::string &name, glm::mat4 value);
 private:
     // 读取着色器文件
     std::string readShaderFile(const std::string &path);

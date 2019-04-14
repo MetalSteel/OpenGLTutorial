@@ -7,14 +7,13 @@ include_directories("${PROJECT_SOURCE_DIR}/inc/" "${PROJECT_SOURCE_DIR}/src/incl
 link_directories("${PROJECT_SOURCE_DIR}/lib/")
 
 set(SRC_LIST
-        src/source/main.cpp
         src/util/glad.c
         src/util/stb_image.cpp
         src/include/Shader.h
         src/source/Shader.cpp
         src/include/Camera.h
         src/source/Camera.cpp
-        )
+        src/source/main.cpp)
 
 add_executable(OpenGLTutorial ${SRC_LIST})
 

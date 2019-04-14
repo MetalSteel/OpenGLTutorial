@@ -90,6 +90,11 @@ public:
     {
         return this->cameraFOV;
     }
+    // 获取摄像机的位置
+    glm::vec3 getCameraPosition() const
+    {
+        return this->cameraPosition;
+    }
 };
 
 #endif //OPENGLTUTORIAL_CAMERA_H

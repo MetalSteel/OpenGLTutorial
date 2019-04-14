@@ -1,6 +1,3 @@
-
-#include <Shader.h>
-
 #include "Shader.h"
 
 // 着色器构造方法
@@ -114,10 +111,16 @@ void Shader::setUniform1f(const std::string &name, int value)
     glUniform1f(glGetUniformLocation(id, name.c_str()), value);
 }
 
-// 设置Uniform变量齐次矩阵类型
-void Shader::setUniformMatrix4fv(const std::string &name, GLsizei count, GLboolean transpose, glm::mat4 value)
+// 设置Uniform变量vec3类型
+void Shader::setUniform3fv(const std::string &name, glm::vec3 value)
 {
-    glUniformMatrix4fv(glGetUniformLocation(id, name.c_str()), count, transpose, glm::value_ptr(value));
+    glUniform3fv(glGetUniformLocation(id, name.c_str()), 1, &value[0]);
+}
+
+// 设置Uniform变量齐次矩阵类型
+void Shader::setUniformMatrix4fv(const std::string &name, glm::mat4 value)
+{
+    glUniformMatrix4fv(glGetUniformLocation(id, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
 }
 
 
