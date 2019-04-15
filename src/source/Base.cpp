@@ -202,7 +202,7 @@ int main(int argc, char **argv)
 
     // 读取本地图片
     int wallTexWidth, wallTexHeight, wallTexChannel;
-    unsigned char *wallTexData = stbi_load("../texture/box01.png", &wallTexWidth, &wallTexHeight, &wallTexChannel, 0);
+    unsigned char *wallTexData = stbi_load("../texture/box_diffuse.png", &wallTexWidth, &wallTexHeight, &wallTexChannel, 0);
     // 将本地图片资源导入到贴图中
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, wallTexWidth, wallTexHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, wallTexData);
     // 生成MipMap

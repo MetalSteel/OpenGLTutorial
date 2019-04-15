@@ -5,7 +5,11 @@ Shader::Shader(const std::string &vertexShaderSource, const std::string &fragmen
 {
     // 顶点着色器
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    const char *vertexShaderCode = readShaderFile(vertexShaderSource).c_str();
+    std::string tmpStr = readShaderFile(vertexShaderSource);
+    tmpStr.erase(0, 20);
+    const char *vertexShaderCode = tmpStr.c_str();
+    std::cout << "## " << vertexShaderSource << " ##" << std::endl;
+    std::cout << vertexShaderCode << std::endl;
     glShaderSource(vertexShader, 1, &vertexShaderCode, nullptr);
     glCompileShader(vertexShader);
     checkShader(vertexShader, ShaderType::VertexShader);
@@ -13,6 +17,8 @@ Shader::Shader(const std::string &vertexShaderSource, const std::string &fragmen
     // 片段着色器
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     const char *fragmentShaderCode = readShaderFile(fragmentShaderSource).c_str();
+    std::cout << "## " << fragmentShaderSource << " ##" << std::endl;
+    std::cout << fragmentShaderCode << std::endl;
     glShaderSource(fragmentShader, 1, &fragmentShaderCode, nullptr);
     glCompileShader(fragmentShader);
     checkShader(fragmentShader, ShaderType::FragmentShader);
@@ -39,25 +45,50 @@ void Shader::use()
 std::string Shader::readShaderFile(const std::string &path)
 {
     // 打开shader文件
-    std::ifstream ifile(path);
+    std::ifstream ifile(path, std::ios::binary);
     // 返回结果
+    std::string tmp("         \n\0");
     std::string result;
+    result.append(tmp);
+    result.append("#version 330 core\n");
     // 判断释放打开成功
     if(!ifile.is_open())
     {
         result = "Read File Fail...";
         return result;
     }
+    // 判断是否读取第一行
+    bool bIsFirstLine = true;
     // 循环读取
-    while(ifile.good())
+    while(ifile)
     {
         // 创建一行
         std::string line;
         // 读取一行
         std::getline(ifile, line);
+        // 判断是否是第一行,舍弃第一行
+        if(bIsFirstLine)
+        {
+            bIsFirstLine = false;
+            continue;
+        }
+        // 判断是否空行
+        if(0 == line.size())
+        {
+            continue;
+        }
+        // 判断是否注释
+        if(std::string::npos != line.find("//"))
+        {
+            continue;
+        }
         // 注意:不要忘记加上换行
         result.append(line + "\n");
     }
+    result.append("\0");
+    std::cout << result << std::endl;
+
+    ifile.close();
 
     return result;
 }
